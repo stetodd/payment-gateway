@@ -1,0 +1,16 @@
+{
+    "name": "stetodd/payment-gateway",
+    "description": "Provider-neutral payment gateway contracts, models and test simulator",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "Stetodd\\PaymentGateway\\": "src/"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
