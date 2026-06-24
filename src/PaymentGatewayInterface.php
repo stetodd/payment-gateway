@@ -13,6 +13,7 @@ use Stetodd\PaymentGateway\Model\Request\Subscription\CancelSubscriptionRequest;
 use Stetodd\PaymentGateway\Model\Request\Subscription\GetSubscriptionRequest;
 use Stetodd\PaymentGateway\Model\Request\Subscription\ReactivateSubscriptionRequest;
 use Stetodd\PaymentGateway\Model\Request\Subscription\UpdateSubscriptionPlanRequest;
+use Stetodd\PaymentGateway\Model\Request\Subscription\UpdateSubscriptionQuantityRequest;
 use Stetodd\PaymentGateway\Model\Subscription;
 
 interface PaymentGatewayInterface
@@ -26,6 +27,8 @@ interface PaymentGatewayInterface
     public function reactivateSubscription(ReactivateSubscriptionRequest $request): void;
 
     public function updateSubscriptionPlan(UpdateSubscriptionPlanRequest $request): void;
+
+    public function updateSubscriptionQuantity(UpdateSubscriptionQuantityRequest $request): void;
 
     public function createPortalSession(CreatePortalSessionRequest $request): string;
 
