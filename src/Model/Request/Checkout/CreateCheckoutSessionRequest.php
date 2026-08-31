@@ -12,6 +12,10 @@ class CreateCheckoutSessionRequest
     public function __construct(
         public readonly Customer $customer,
         public readonly LineItemCollection $lineItems,
+        /** Absolute URL the vendor sends the customer to after a completed checkout. */
+        public readonly string $successUrl,
+        /** Absolute URL the vendor sends the customer to when they abandon checkout. */
+        public readonly string $cancelUrl,
         /** @var array<string, string> */
         public readonly array $metadata,
     ) {
