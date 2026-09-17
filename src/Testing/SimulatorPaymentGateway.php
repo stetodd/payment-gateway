@@ -68,6 +68,14 @@ class SimulatorPaymentGateway implements PaymentGatewayInterface
     public array $checkoutSessionRequests = [];
 
     /**
+     * Every cancel asked for, including ones that failed for want of a queued
+     * response (the simulator's way of making a cancel fail).
+     *
+     * @var list<CancelSubscriptionRequest>
+     */
+    public array $cancelSubscriptionRequests = [];
+
+    /**
      * Paid invoices per subscription id, in the order they were recorded.
      *
      * @var array<string, list<SubscriptionPayment>>
@@ -133,6 +141,8 @@ class SimulatorPaymentGateway implements PaymentGatewayInterface
 
     public function cancelSubscription(CancelSubscriptionRequest $request): Subscription
     {
+        $this->cancelSubscriptionRequests[] = $request;
+
         /** @var Subscription $response */
         $response = $this->getResponse('cancel_subscription');
 

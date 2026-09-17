@@ -15,6 +15,7 @@ use Stetodd\PaymentGateway\Model\Customer;
 use Stetodd\PaymentGateway\Model\Payment\RefundStatus;
 use Stetodd\PaymentGateway\Model\Request\Checkout\CreateCheckoutSessionRequest;
 use Stetodd\PaymentGateway\Model\Request\Payment\RefundPaymentRequest;
+use Stetodd\PaymentGateway\Model\Request\Subscription\CancelSubscriptionRequest;
 use Stetodd\PaymentGateway\Model\Request\Subscription\GetSubscriptionRequest;
 use Stetodd\PaymentGateway\Model\Subscription\SubscriptionPayment;
 use Stetodd\PaymentGateway\Testing\SimulatorPaymentGateway;
@@ -125,6 +126,17 @@ final class SimulatorPaymentGatewayTest extends TestCase
         ));
 
         self::assertSame('You can cancel within 14 days.', $this->gateway->checkoutSessionRequests[0]->customText?->submit);
+    }
+
+    public function test_a_cancel_without_a_queued_response_fails_but_is_still_recorded(): void
+    {
+        try {
+            $this->gateway->cancelSubscription(new CancelSubscriptionRequest('sub_1'));
+            self::fail('A cancel with no queued response should fail.');
+        } catch (\RuntimeException) {
+        }
+
+        self::assertSame('sub_1', $this->gateway->cancelSubscriptionRequests[0]->subscriptionId);
     }
 
     private function payment(string $paymentId, string $paidOn, int $amount = 1500): SubscriptionPayment
