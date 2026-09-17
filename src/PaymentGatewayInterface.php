@@ -7,12 +7,14 @@ namespace Stetodd\PaymentGateway;
 use Stetodd\PaymentGateway\Model\Checkout\Session;
 use Stetodd\PaymentGateway\Model\Customer;
 use Stetodd\PaymentGateway\Model\Payment\Payment;
+use Stetodd\PaymentGateway\Model\Payment\Refund;
 use Stetodd\PaymentGateway\Model\Request\Checkout\CreateCheckoutSessionRequest;
 use Stetodd\PaymentGateway\Model\Request\Customer\CreateCustomerRequest;
 use Stetodd\PaymentGateway\Model\Request\Payment\CancelPaymentRequest;
 use Stetodd\PaymentGateway\Model\Request\Payment\CapturePaymentRequest;
 use Stetodd\PaymentGateway\Model\Request\Payment\CreatePaymentHoldRequest;
 use Stetodd\PaymentGateway\Model\Request\Payment\GetPaymentRequest;
+use Stetodd\PaymentGateway\Model\Request\Payment\RefundPaymentRequest;
 use Stetodd\PaymentGateway\Model\Request\Portal\CreatePortalSessionRequest;
 use Stetodd\PaymentGateway\Model\Request\Subscription\CancelSubscriptionRequest;
 use Stetodd\PaymentGateway\Model\Request\Subscription\GetSubscriptionRequest;
@@ -20,6 +22,7 @@ use Stetodd\PaymentGateway\Model\Request\Subscription\ReactivateSubscriptionRequ
 use Stetodd\PaymentGateway\Model\Request\Subscription\UpdateSubscriptionPlanRequest;
 use Stetodd\PaymentGateway\Model\Request\Subscription\UpdateSubscriptionQuantityRequest;
 use Stetodd\PaymentGateway\Model\Subscription;
+use Stetodd\PaymentGateway\Model\Subscription\SubscriptionPayment;
 
 interface PaymentGatewayInterface
 {
@@ -42,6 +45,14 @@ interface PaymentGatewayInterface
     public function findSubscription(GetSubscriptionRequest $request): ?Subscription;
 
     /**
+     * The subscription's most recent paid invoice, or null when nothing has
+     * been paid on it yet.
+     *
+     * @throws \Stetodd\PaymentGateway\Exception\Subscription\SubscriptionNotFoundException
+     */
+    public function findLatestSubscriptionPayment(GetSubscriptionRequest $request): ?SubscriptionPayment;
+
+    /**
      * A hosted checkout that authorises a one-off amount without capturing it.
      * The completed-checkout webhook carries the payment id to capture or
      * cancel with.
@@ -57,4 +68,13 @@ interface PaymentGatewayInterface
      * @throws \Stetodd\PaymentGateway\Exception\Payment\PaymentNotFoundException
      */
     public function getPayment(GetPaymentRequest $request): Payment;
+
+    /**
+     * Returns money from a captured payment to the customer's payment method.
+     * Partial refunds may follow one another up to the amount captured.
+     *
+     * @throws \Stetodd\PaymentGateway\Exception\Payment\PaymentNotFoundException
+     * @throws \Stetodd\PaymentGateway\Exception\Payment\RefundFailedException
+     */
+    public function refundPayment(RefundPaymentRequest $request): Refund;
 }

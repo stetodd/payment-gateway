@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Stetodd\PaymentGateway\Model\Request\Payment;
 
+use Stetodd\PaymentGateway\Model\Checkout\CustomText;
 use Stetodd\PaymentGateway\Model\Customer;
 
 /**
@@ -25,6 +26,7 @@ class CreatePaymentHoldRequest
         public readonly string $cancelUrl,
         /** @var array<string, string> carried onto the checkout and the payment */
         public readonly array $metadata = [],
+        public readonly ?CustomText $customText = null,
     ) {
     }
 

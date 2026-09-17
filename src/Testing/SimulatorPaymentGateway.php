@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Stetodd\PaymentGateway\Testing;
 
 use Stetodd\PaymentGateway\Exception\Payment\PaymentNotFoundException;
+use Stetodd\PaymentGateway\Exception\Payment\RefundFailedException;
 use Stetodd\PaymentGateway\Model\Checkout\Session;
 use Stetodd\PaymentGateway\Model\Customer;
 use Stetodd\PaymentGateway\Model\Payment\Payment;
 use Stetodd\PaymentGateway\Model\Payment\PaymentStatus;
+use Stetodd\PaymentGateway\Model\Payment\Refund;
+use Stetodd\PaymentGateway\Model\Payment\RefundStatus;
 use Stetodd\PaymentGateway\Model\Portal\PortalSession;
 use Stetodd\PaymentGateway\Model\Request\Checkout\CreateCheckoutSessionRequest;
 use Stetodd\PaymentGateway\Model\Request\Customer\CreateCustomerRequest;
@@ -16,6 +19,7 @@ use Stetodd\PaymentGateway\Model\Request\Payment\CancelPaymentRequest;
 use Stetodd\PaymentGateway\Model\Request\Payment\CapturePaymentRequest;
 use Stetodd\PaymentGateway\Model\Request\Payment\CreatePaymentHoldRequest;
 use Stetodd\PaymentGateway\Model\Request\Payment\GetPaymentRequest;
+use Stetodd\PaymentGateway\Model\Request\Payment\RefundPaymentRequest;
 use Stetodd\PaymentGateway\Model\Request\Portal\CreatePortalSessionRequest;
 use Stetodd\PaymentGateway\Model\Request\Subscription\CancelSubscriptionRequest;
 use Stetodd\PaymentGateway\Model\Request\Subscription\GetSubscriptionRequest;
@@ -23,6 +27,7 @@ use Stetodd\PaymentGateway\Model\Request\Subscription\ReactivateSubscriptionRequ
 use Stetodd\PaymentGateway\Model\Request\Subscription\UpdateSubscriptionPlanRequest;
 use Stetodd\PaymentGateway\Model\Request\Subscription\UpdateSubscriptionQuantityRequest;
 use Stetodd\PaymentGateway\Model\Subscription;
+use Stetodd\PaymentGateway\Model\Subscription\SubscriptionPayment;
 use Stetodd\PaymentGateway\PaymentGatewayInterface;
 
 class SimulatorPaymentGateway implements PaymentGatewayInterface
@@ -59,6 +64,26 @@ class SimulatorPaymentGateway implements PaymentGatewayInterface
     /** @var list<CreatePaymentHoldRequest> */
     public array $paymentHoldRequests = [];
 
+    /** @var list<CreateCheckoutSessionRequest> */
+    public array $checkoutSessionRequests = [];
+
+    /**
+     * Paid invoices per subscription id, in the order they were recorded.
+     *
+     * @var array<string, list<SubscriptionPayment>>
+     */
+    private array $subscriptionPayments = [];
+
+    /** @var list<Refund> */
+    public array $refunds = [];
+
+    /**
+     * Reasons the next refunds are refused with, oldest first.
+     *
+     * @var list<string>
+     */
+    private array $refundFailures = [];
+
     /** @var array<string, int> */
     private array $callCounts = [
         'reactivate_subscription' => 0,
@@ -90,6 +115,8 @@ class SimulatorPaymentGateway implements PaymentGatewayInterface
 
     public function createCheckoutSession(CreateCheckoutSessionRequest $request): Session
     {
+        $this->checkoutSessionRequests[] = $request;
+
         /** @var Session $response */
         $response = $this->getResponse('checkout_session');
 
@@ -146,6 +173,74 @@ class SimulatorPaymentGateway implements PaymentGatewayInterface
     public function findSubscription(GetSubscriptionRequest $request): ?Subscription
     {
         return $this->getSubscription($request);
+    }
+
+    /**
+     * Registers a paid invoice on a subscription, as a successful checkout or
+     * renewal would, along with its captured payment so it can be refunded.
+     */
+    public function recordSubscriptionPayment(SubscriptionPayment $payment): void
+    {
+        $this->subscriptionPayments[$payment->subscriptionId][] = $payment;
+        $this->payments[$payment->paymentId] = new Payment($payment->paymentId, PaymentStatus::Succeeded, $payment->amountPaid, $payment->currency, $payment->amountPaid);
+    }
+
+    public function findLatestSubscriptionPayment(GetSubscriptionRequest $request): ?SubscriptionPayment
+    {
+        $latest = null;
+        foreach ($this->subscriptionPayments[$request->subscriptionId] ?? [] as $payment) {
+            if ($latest === null || $payment->paidAt >= $latest->paidAt) {
+                $latest = $payment;
+            }
+        }
+
+        return $latest;
+    }
+
+    /** The next refund is refused with this reason, as a disputed charge would be. */
+    public function failNextRefund(string $reason = 'charge_disputed'): void
+    {
+        $this->refundFailures[] = $reason;
+    }
+
+    public function refundPayment(RefundPaymentRequest $request): Refund
+    {
+        $payment = $this->getPayment(new GetPaymentRequest($request->paymentId));
+
+        $reason = array_shift($this->refundFailures);
+        if ($reason !== null) {
+            throw new RefundFailedException($payment->id, $reason);
+        }
+        if (!$payment->status->isCaptured()) {
+            throw new RefundFailedException($payment->id, sprintf('payment is %s, not captured', $payment->status->value));
+        }
+
+        $remaining = $payment->amountCaptured - $this->refundedAmount($payment->id);
+        $amount = $request->amount ?? $remaining;
+        if ($amount < 1 || $amount > $remaining) {
+            throw new RefundFailedException($payment->id, sprintf('%d requested, %d left to refund', $amount, $remaining));
+        }
+
+        return $this->refunds[] = new Refund(
+            sprintf('re_sim_%d', \count($this->refunds) + 1),
+            $payment->id,
+            RefundStatus::Succeeded,
+            $amount,
+            $payment->currency,
+        );
+    }
+
+    /** Minor units refunded so far against one payment. */
+    public function refundedAmount(string $paymentId): int
+    {
+        $total = 0;
+        foreach ($this->refunds as $refund) {
+            if ($refund->paymentId === $paymentId) {
+                $total += $refund->amount;
+            }
+        }
+
+        return $total;
     }
 
     /** Registers an authorised (uncaptured) payment, as a completed hold checkout would. */
