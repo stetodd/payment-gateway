@@ -6,7 +6,9 @@ namespace Stetodd\PaymentGateway\Model\Checkout;
 
 class Session
 {
-    public function __construct(public readonly string $url)
-    {
+    public function __construct(
+        public readonly string $id,
+        public readonly string $url,
+    ) {
     }
 }

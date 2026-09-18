@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Stetodd\PaymentGateway;
 
+use Stetodd\PaymentGateway\Model\Checkout\CheckoutSession;
 use Stetodd\PaymentGateway\Model\Checkout\Session;
 use Stetodd\PaymentGateway\Model\Customer;
 use Stetodd\PaymentGateway\Model\Payment\Payment;
 use Stetodd\PaymentGateway\Model\Payment\Refund;
 use Stetodd\PaymentGateway\Model\Request\Checkout\CreateCheckoutSessionRequest;
+use Stetodd\PaymentGateway\Model\Request\Checkout\GetCheckoutSessionRequest;
 use Stetodd\PaymentGateway\Model\Request\Customer\CreateCustomerRequest;
 use Stetodd\PaymentGateway\Model\Request\Payment\CancelPaymentRequest;
 use Stetodd\PaymentGateway\Model\Request\Payment\CapturePaymentRequest;
@@ -27,6 +29,19 @@ use Stetodd\PaymentGateway\Model\Subscription\SubscriptionPayment;
 interface PaymentGatewayInterface
 {
     public function createCheckoutSession(CreateCheckoutSessionRequest $request): Session;
+
+    /**
+     * How a checkout ended, read straight from the vendor, for a caller that
+     * cannot wait for — or never received — the webhook. Null when the vendor
+     * has no such session.
+     */
+    public function findCheckoutSession(GetCheckoutSessionRequest $request): ?CheckoutSession;
+
+    /**
+     * Closes an open checkout so it can never be paid. Doing this to a session
+     * that is already settled changes nothing.
+     */
+    public function expireCheckoutSession(GetCheckoutSessionRequest $request): void;
 
     public function createCustomer(CreateCustomerRequest $request): Customer;
 

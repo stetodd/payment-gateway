@@ -6,6 +6,8 @@ namespace Stetodd\PaymentGateway\Testing;
 
 use Stetodd\PaymentGateway\Exception\Payment\PaymentNotFoundException;
 use Stetodd\PaymentGateway\Exception\Payment\RefundFailedException;
+use Stetodd\PaymentGateway\Model\Checkout\CheckoutSession;
+use Stetodd\PaymentGateway\Model\Checkout\CheckoutStatus;
 use Stetodd\PaymentGateway\Model\Checkout\Session;
 use Stetodd\PaymentGateway\Model\Customer;
 use Stetodd\PaymentGateway\Model\Payment\Payment;
@@ -14,6 +16,7 @@ use Stetodd\PaymentGateway\Model\Payment\Refund;
 use Stetodd\PaymentGateway\Model\Payment\RefundStatus;
 use Stetodd\PaymentGateway\Model\Portal\PortalSession;
 use Stetodd\PaymentGateway\Model\Request\Checkout\CreateCheckoutSessionRequest;
+use Stetodd\PaymentGateway\Model\Request\Checkout\GetCheckoutSessionRequest;
 use Stetodd\PaymentGateway\Model\Request\Customer\CreateCustomerRequest;
 use Stetodd\PaymentGateway\Model\Request\Payment\CancelPaymentRequest;
 use Stetodd\PaymentGateway\Model\Request\Payment\CapturePaymentRequest;
@@ -82,6 +85,16 @@ class SimulatorPaymentGateway implements PaymentGatewayInterface
      */
     private array $subscriptionPayments = [];
 
+    /**
+     * How each checkout stands when read back, keyed by session id.
+     *
+     * @var array<string, CheckoutSession>
+     */
+    private array $checkoutSessions = [];
+
+    /** @var list<string> */
+    public array $expiredCheckoutSessions = [];
+
     /** @var list<Refund> */
     public array $refunds = [];
 
@@ -129,6 +142,37 @@ class SimulatorPaymentGateway implements PaymentGatewayInterface
         $response = $this->getResponse('checkout_session');
 
         return $response;
+    }
+
+    /** Registers how a checkout stands, as the vendor would report it back. */
+    public function recordCheckoutSession(CheckoutSession $session): void
+    {
+        $this->checkoutSessions[$session->id] = $session;
+    }
+
+    public function findCheckoutSession(GetCheckoutSessionRequest $request): ?CheckoutSession
+    {
+        return $this->checkoutSessions[$request->sessionId] ?? null;
+    }
+
+    public function expireCheckoutSession(GetCheckoutSessionRequest $request): void
+    {
+        $this->expiredCheckoutSessions[] = $request->sessionId;
+
+        $session = $this->checkoutSessions[$request->sessionId] ?? null;
+        if ($session === null || $session->status !== CheckoutStatus::Open) {
+            return;
+        }
+
+        $this->checkoutSessions[$session->id] = new CheckoutSession(
+            $session->id,
+            CheckoutStatus::Expired,
+            $session->paid,
+            $session->subscriptionId,
+            $session->customerId,
+            $session->amountTotal,
+            $session->metadata,
+        );
     }
 
     public function createCustomer(CreateCustomerRequest $request): Customer
