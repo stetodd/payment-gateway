@@ -16,10 +16,13 @@ class CheckoutSession
         public readonly CheckoutStatus $status,
         /** Settled: paid, or completed with nothing to pay. */
         public readonly bool $paid,
+        /** Set when the checkout set up a subscription. */
         public readonly ?string $subscriptionId = null,
         public readonly ?string $customerId = null,
         public readonly int $amountTotal = 0,
         public readonly array $metadata = [],
+        /** Set when the checkout took a single payment: what to refund against. */
+        public readonly ?string $paymentIntentId = null,
     ) {
     }
 }

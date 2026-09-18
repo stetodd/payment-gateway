@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Stetodd\PaymentGateway\Model\Request\Checkout;
 
+use Stetodd\PaymentGateway\Model\Checkout\CheckoutMode;
 use Stetodd\PaymentGateway\Model\Checkout\CustomText;
 use Stetodd\PaymentGateway\Model\Checkout\LineItemCollection;
 use Stetodd\PaymentGateway\Model\Customer;
@@ -20,6 +21,8 @@ class CreateCheckoutSessionRequest
         /** @var array<string, string> */
         public readonly array $metadata,
         public readonly ?CustomText $customText = null,
+        /** A subscription unless the caller is selling something that bills once. */
+        public readonly CheckoutMode $mode = CheckoutMode::Subscription,
     ) {
     }
 

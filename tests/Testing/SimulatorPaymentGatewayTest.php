@@ -7,6 +7,9 @@ namespace Stetodd\PaymentGateway\Tests\Testing;
 use PHPUnit\Framework\TestCase;
 use Stetodd\PaymentGateway\Exception\Payment\PaymentNotFoundException;
 use Stetodd\PaymentGateway\Exception\Payment\RefundFailedException;
+use Stetodd\PaymentGateway\Model\Checkout\CheckoutMode;
+use Stetodd\PaymentGateway\Model\Checkout\CheckoutSession;
+use Stetodd\PaymentGateway\Model\Checkout\CheckoutStatus;
 use Stetodd\PaymentGateway\Model\Checkout\CustomText;
 use Stetodd\PaymentGateway\Model\Checkout\LineItem;
 use Stetodd\PaymentGateway\Model\Checkout\LineItemCollection;
@@ -14,6 +17,7 @@ use Stetodd\PaymentGateway\Model\Checkout\Session;
 use Stetodd\PaymentGateway\Model\Customer;
 use Stetodd\PaymentGateway\Model\Payment\RefundStatus;
 use Stetodd\PaymentGateway\Model\Request\Checkout\CreateCheckoutSessionRequest;
+use Stetodd\PaymentGateway\Model\Request\Checkout\GetCheckoutSessionRequest;
 use Stetodd\PaymentGateway\Model\Request\Payment\RefundPaymentRequest;
 use Stetodd\PaymentGateway\Model\Request\Subscription\CancelSubscriptionRequest;
 use Stetodd\PaymentGateway\Model\Request\Subscription\GetSubscriptionRequest;
@@ -112,7 +116,7 @@ final class SimulatorPaymentGatewayTest extends TestCase
 
     public function test_checkout_session_requests_are_recorded_with_their_custom_text(): void
     {
-        $this->gateway->willReturnResponse('checkout_session', new Session('https://checkout.test/s'));
+        $this->gateway->willReturnResponse('checkout_session', new Session('cs_1', 'https://checkout.test/s'));
         $lineItems = new LineItemCollection();
         $lineItems->add(LineItem::fromPriceId('price_1', 1));
 
@@ -126,6 +130,45 @@ final class SimulatorPaymentGatewayTest extends TestCase
         ));
 
         self::assertSame('You can cancel within 14 days.', $this->gateway->checkoutSessionRequests[0]->customText?->submit);
+    }
+
+    public function test_a_checkout_is_a_subscription_unless_it_is_told_otherwise(): void
+    {
+        $this->gateway->willReturnResponse('checkout_session', new Session('cs_1', 'https://checkout.test/s'));
+        $this->gateway->willReturnResponse('checkout_session', new Session('cs_2', 'https://checkout.test/s'));
+        $lineItems = new LineItemCollection();
+        $lineItems->add(LineItem::fromPriceId('price_1', 1));
+
+        $this->gateway->createCheckoutSession(new CreateCheckoutSessionRequest(
+            new Customer('cus_1', []),
+            $lineItems,
+            'https://app.test/ok',
+            'https://app.test/cancel',
+            [],
+        ));
+        $this->gateway->createCheckoutSession(new CreateCheckoutSessionRequest(
+            new Customer('cus_1', []),
+            $lineItems,
+            'https://app.test/ok',
+            'https://app.test/cancel',
+            [],
+            null,
+            CheckoutMode::Payment,
+        ));
+
+        self::assertSame(CheckoutMode::Subscription, $this->gateway->checkoutSessionRequests[0]->mode);
+        self::assertSame(CheckoutMode::Payment, $this->gateway->checkoutSessionRequests[1]->mode);
+    }
+
+    public function test_a_recorded_checkout_carries_back_what_it_paid_for(): void
+    {
+        $this->gateway->recordCheckoutSession(new CheckoutSession('cs_1', CheckoutStatus::Complete, true, null, 'cus_1', 4900, [], 'pi_1'));
+
+        $session = $this->gateway->findCheckoutSession(new GetCheckoutSessionRequest('cs_1'));
+
+        self::assertNotNull($session);
+        self::assertNull($session->subscriptionId, 'a one-off sets up no subscription');
+        self::assertSame('pi_1', $session->paymentIntentId);
     }
 
     public function test_a_cancel_without_a_queued_response_fails_but_is_still_recorded(): void
