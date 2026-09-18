@@ -14,6 +14,8 @@ class Subscription
         public \DateTimeImmutable $currentPeriodStart,
         public \DateTimeImmutable $currentPeriodEnd,
         public bool $cancelAtPeriodEnd,
+        /** When the subscription is scheduled to end, if a moment was named rather than just the period end. */
+        public ?\DateTimeImmutable $cancelAt = null,
     ) {
     }
 }
