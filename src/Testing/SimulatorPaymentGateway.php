@@ -98,6 +98,9 @@ class SimulatorPaymentGateway implements PaymentGatewayInterface
     /** @var list<Refund> */
     public array $refunds = [];
 
+    /** @var array<string, Refund> refunds made under an idempotency key, by payment and key */
+    private array $keyedRefunds = [];
+
     /**
      * Reasons the next refunds are refused with, oldest first.
      *
@@ -261,6 +264,11 @@ class SimulatorPaymentGateway implements PaymentGatewayInterface
     {
         $payment = $this->getPayment(new GetPaymentRequest($request->paymentId));
 
+        $slot = $request->idempotencyKey === null ? null : $payment->id.' '.$request->idempotencyKey;
+        if ($slot !== null && isset($this->keyedRefunds[$slot])) {
+            return $this->keyedRefunds[$slot];
+        }
+
         $reason = array_shift($this->refundFailures);
         if ($reason !== null) {
             throw new RefundFailedException($payment->id, $reason);
@@ -275,13 +283,18 @@ class SimulatorPaymentGateway implements PaymentGatewayInterface
             throw new RefundFailedException($payment->id, sprintf('%d requested, %d left to refund', $amount, $remaining));
         }
 
-        return $this->refunds[] = new Refund(
+        $refund = $this->refunds[] = new Refund(
             sprintf('re_sim_%d', \count($this->refunds) + 1),
             $payment->id,
             RefundStatus::Succeeded,
             $amount,
             $payment->currency,
         );
+        if ($slot !== null) {
+            $this->keyedRefunds[$slot] = $refund;
+        }
+
+        return $refund;
     }
 
     /** Minor units refunded so far against one payment. */

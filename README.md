@@ -18,6 +18,6 @@ In tests, use `Stetodd\PaymentGateway\Testing\SimulatorPaymentGateway` and queue
 
 ### Refunds and subscription payments
 
-Seed a paid subscription invoice with `recordSubscriptionPayment(SubscriptionPayment)`. That also registers its captured payment, so `refundPayment()` works against it. `failNextRefund($reason)` makes the next refund throw `RefundFailedException`. `refunds`, `refundedAmount($paymentId)` and `checkoutSessionRequests` let you assert on what was sent.
+Seed a paid subscription invoice with `recordSubscriptionPayment(SubscriptionPayment)`. That also registers its captured payment, so `refundPayment()` works against it. `failNextRefund($reason)` makes the next refund throw `RefundFailedException`. A `RefundPaymentRequest` given an `idempotencyKey` pays at most once per payment: a repeat under the same key returns the first refund, with the first refund's amount. `refunds`, `refundedAmount($paymentId)` and `checkoutSessionRequests` let you assert on what was sent.
 
 Tests: `composer install && vendor/bin/phpunit`.

@@ -70,6 +70,18 @@ final class SimulatorPaymentGatewayTest extends TestCase
         $this->gateway->refundPayment(new RefundPaymentRequest('pi_1', 1));
     }
 
+    public function test_a_refund_repeated_under_the_same_key_pays_once(): void
+    {
+        $this->gateway->recordSubscriptionPayment($this->payment('pi_1', '2026-09-01', 1500));
+
+        $first = $this->gateway->refundPayment(new RefundPaymentRequest('pi_1', 1000, [], 'statutory-1'));
+        $repeat = $this->gateway->refundPayment(new RefundPaymentRequest('pi_1', 900, [], 'statutory-1'));
+
+        self::assertSame($first->id, $repeat->id);
+        self::assertSame(1000, $repeat->amount);
+        self::assertSame(1000, $this->gateway->refundedAmount('pi_1'));
+    }
+
     public function test_a_refund_larger_than_the_payment_is_refused(): void
     {
         $this->gateway->recordSubscriptionPayment($this->payment('pi_1', '2026-09-01', 1500));

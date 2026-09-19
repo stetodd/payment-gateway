@@ -86,7 +86,9 @@ interface PaymentGatewayInterface
 
     /**
      * Returns money from a captured payment to the customer's payment method.
-     * Partial refunds may follow one another up to the amount captured.
+     * Partial refunds may follow one another up to the amount captured. A
+     * request carrying an idempotency key pays at most once: a repeat returns
+     * the refund the first one made.
      *
      * @throws \Stetodd\PaymentGateway\Exception\Payment\PaymentNotFoundException
      * @throws \Stetodd\PaymentGateway\Exception\Payment\RefundFailedException
